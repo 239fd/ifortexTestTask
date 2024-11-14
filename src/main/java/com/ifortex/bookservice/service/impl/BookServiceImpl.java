@@ -5,7 +5,6 @@ import com.ifortex.bookservice.model.Book;
 import com.ifortex.bookservice.service.BookService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.criteria.*;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
@@ -46,22 +45,24 @@ public class BookServiceImpl implements BookService {
     @Override
     public List<Book> getAllByCriteria(SearchCriteria searchCriteria) {
 
-
-        if (searchCriteria.getTitle() != null && !searchCriteria.getTitle().isEmpty()) {
-            List<Book> books = entityManager.createQuery("select b from Book b", Book.class).getResultList();
-        }
-        if (searchCriteria.getAuthor() != null && !searchCriteria.getAuthor().isEmpty()) {
-            predicate = cb.and(predicate, cb.like(cb.lower(book.get("author")), "%" + searchCriteria.getAuthor().toLowerCase() + "%"));
-        }
-        if (searchCriteria.getGenre() != null && !searchCriteria.getGenre().isEmpty()) {
-            predicate = cb.and(predicate, cb.equal(cb.lower(book.get("genre")), searchCriteria.getGenre().toLowerCase()));
-        }
-        if (searchCriteria.getYear() != null) {
-            predicate = cb.and(predicate, cb.equal(book.get("publicationYear"), searchCriteria.getYear()));
+        if(searchCriteria == null) {
+            return entityManager.createQuery("select b from Book b order by b.publicationDate desc", Book.class).getResultList();
         }
 
-        query.select(book).where(predicate).orderBy(cb.desc(book.get("publicationDate")));
+        List<Book> books = entityManager.createQuery("select b from Book b", Book.class).getResultList();
 
-        return entityManager.createQuery(query).getResultList();
+         return books.stream()
+              .filter(b -> searchCriteria.getTitle() == null || searchCriteria.getTitle().isEmpty() ||
+                      b.getTitle().toLowerCase().contains(searchCriteria.getTitle().toLowerCase()))
+              .filter(b -> searchCriteria.getAuthor() == null || searchCriteria.getAuthor().isEmpty() ||
+                      b.getAuthor().toLowerCase().contains(searchCriteria.getAuthor().toLowerCase()))
+              .filter(b -> searchCriteria.getGenre() == null || searchCriteria.getGenre().isEmpty() ||
+                      b.getGenres().stream().anyMatch(genre -> genre.equalsIgnoreCase(searchCriteria.getGenre())))
+              .filter(b -> searchCriteria.getDescription() == null || searchCriteria.getDescription().isEmpty() ||
+                      b.getDescription().toLowerCase().contains(searchCriteria.getDescription().toLowerCase()))
+              .filter(b -> searchCriteria.getYear() == null ||
+                      b.getPublicationDate().getYear() == searchCriteria.getYear())
+              .sorted((b1,b2) -> b2.getPublicationDate().compareTo(b1.getPublicationDate()))
+              .collect(Collectors.toList());
     }
 }
